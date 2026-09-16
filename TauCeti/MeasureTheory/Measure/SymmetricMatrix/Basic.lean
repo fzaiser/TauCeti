@@ -50,10 +50,9 @@ subspace: `TauCeti.symmetricCoordinates` reads off the entries above the diagona
 * `selfAdjoint.inner_eq_trace_mul` — the Frobenius pairing is the trace pairing, and
   `selfAdjoint.continuous_trace_mul_coe` — that pairing is continuous in its second argument, as
   is its exponential `selfAdjoint.continuous_exp_trace_mul_coe`.
-* `TauCeti.symmetricSingle` — the symmetrized matrix unit, the symmetric matrix dual to an entry
-  under the trace pairing, together with its entries `TauCeti.coe_symmetricSingle_apply` and the
-  trace identities `TauCeti.trace_symmetricSingle_mul` and
-  `TauCeti.trace_symmetricSingle_mul_mul_symmetricSingle_mul`.
+* `TauCeti.symmetricEntry` — the symmetric matrix representing evaluation at an entry under the
+  trace pairing, with `TauCeti.trace_symmetricEntry_mul` and
+  `TauCeti.trace_symmetricEntry_mul_mul_symmetricEntry_mul`.
 -/
 
 public section
@@ -210,6 +209,13 @@ theorem coe_apply_comm {p : ℕ} (A : selfAdjoint.submodule ℝ (Matrix (Fin p) 
     (i j : Fin p) :
     (A : Matrix (Fin p) (Fin p) ℝ) i j = (A : Matrix (Fin p) (Fin p) ℝ) j i := by
   simpa using (isHermitian_coe A).apply j i
+
+open scoped Matrix in
+/-- An element of the symmetric subspace is fixed by transposition. -/
+@[simp]
+theorem transpose_coe {p : ℕ} (A : selfAdjoint.submodule ℝ (Matrix (Fin p) (Fin p) ℝ)) :
+    (A : Matrix (Fin p) (Fin p) ℝ)ᵀ = (A : Matrix (Fin p) (Fin p) ℝ) :=
+  (Matrix.isHermitian_iff_isSymm.1 (isHermitian_coe A)).eq
 
 end selfAdjoint
 
@@ -395,64 +401,6 @@ theorem coe_symmetricFinOneEquiv_symm_apply (x : ℝ) (i j : Fin 1) :
     ContinuousLinearEquiv.coe_funUnique_symm, coe_symmetricCoordinates_symm_apply_of_le 1 _ le_rfl,
     Function.const_apply]
 
-/-! ### Symmetrized matrix units -/
-
-/-- The **symmetrized matrix unit** at `(i, j)`: half the sum of the matrix units at `(i, j)` and
-at `(j, i)`, as an element of the symmetric subspace. Its trace pairing with a symmetric matrix
-is the entry at `(i, j)`, so it is the symmetric matrix dual to that entry. -/
-def symmetricSingle {p : ℕ} (i j : Fin p) : selfAdjoint.submodule ℝ (Matrix (Fin p) (Fin p) ℝ) :=
-  ⟨(2 : ℝ)⁻¹ • (Matrix.single i j 1 + Matrix.single j i 1),
-    Matrix.isHermitian_iff_isSelfAdjoint.1 <| Matrix.isHermitian_iff_isSymm.2 <| by
-      simp [Matrix.IsSymm, Matrix.transpose_add, Matrix.transpose_single, add_comm]⟩
-
-theorem coe_symmetricSingle {p : ℕ} (i j : Fin p) :
-    (symmetricSingle i j : Matrix (Fin p) (Fin p) ℝ) =
-      (2 : ℝ)⁻¹ • (Matrix.single i j 1 + Matrix.single j i 1) := (rfl)
-
-/-- The entries of a symmetrized matrix unit: `(2 : ℝ)⁻¹` at `(i, j)` and at `(j, i)`, and zero
-elsewhere. -/
-@[simp]
-theorem coe_symmetricSingle_apply {p : ℕ} (i j k l : Fin p) :
-    (symmetricSingle i j : Matrix (Fin p) (Fin p) ℝ) k l =
-      (if i = k ∧ j = l then (2 : ℝ)⁻¹ else 0) + if j = k ∧ i = l then (2 : ℝ)⁻¹ else 0 := by
-  rw [coe_symmetricSingle]
-  simp [Matrix.single_apply, mul_add, mul_ite]
-
-theorem symmetricSingle_comm {p : ℕ} (i j : Fin p) :
-    symmetricSingle i j = symmetricSingle j i :=
-  Subtype.ext <| by rw [coe_symmetricSingle, coe_symmetricSingle, add_comm]
-
-/-- The trace pairing of a symmetric matrix with a symmetrized matrix unit reads off the entry at
-that position. -/
-@[simp]
-theorem trace_symmetricSingle_mul {p : ℕ} (i j : Fin p)
-    (A : selfAdjoint.submodule ℝ (Matrix (Fin p) (Fin p) ℝ)) :
-    ((symmetricSingle i j : Matrix (Fin p) (Fin p) ℝ) * (A : Matrix (Fin p) (Fin p) ℝ)).trace =
-      (A : Matrix (Fin p) (Fin p) ℝ) i j := by
-  simp only [coe_symmetricSingle, Matrix.smul_mul, Matrix.trace_smul, Matrix.add_mul,
-    Matrix.trace_add, Matrix.trace_single_mul, selfAdjoint.coe_apply_comm A j i, smul_eq_mul]
-  ring
-
-/-- The trace of a product of two symmetrized matrix units sandwiched by a symmetric matrix. This
-is the matrix identity behind the entrywise covariance of a symmetric-matrix distribution: it
-turns a trace statistic paired with two symmetrized units into entries of the sandwiched
-matrix. -/
-theorem trace_symmetricSingle_mul_mul_symmetricSingle_mul {p : ℕ}
-    {S : Matrix (Fin p) (Fin p) ℝ} (hS : S.IsHermitian) (i j k l : Fin p) :
-    ((symmetricSingle i j : Matrix (Fin p) (Fin p) ℝ) * S *
-        (symmetricSingle k l : Matrix (Fin p) (Fin p) ℝ) * S).trace =
-      (S i k * S j l + S i l * S j k) / 2 := by
-  have hsymm : ∀ x y, S x y = S y x := fun x y => by simpa using hS.apply y x
-  have hunit : ∀ a b c d : Fin p, (Matrix.single a b (1 : ℝ) * S * Matrix.single c d 1 * S).trace =
-      S b c * S d a := by
-    intro a b c d
-    rw [Matrix.mul_assoc, Matrix.mul_assoc, Matrix.trace_single_mul]
-    simp [Matrix.mul_apply, Matrix.single_apply, ite_and, Finset.sum_ite_eq, mul_ite]
-  simp only [coe_symmetricSingle, Matrix.smul_mul, Matrix.mul_smul, Matrix.trace_smul,
-    Matrix.add_mul, Matrix.mul_add, Matrix.trace_add, hunit, smul_eq_mul]
-  rw [hsymm l i, hsymm k i, hsymm l j, hsymm k j]
-  ring
-
 end TauCeti
 
 /-! ### The trace pairing -/
@@ -466,8 +414,8 @@ theorem inner_eq_trace_mul {p : ℕ}
     ⟪A, Θ⟫ = ((Θ : Matrix (Fin p) (Fin p) ℝ) * (A : Matrix (Fin p) (Fin p) ℝ)).trace := by
   let _ : NormedAddCommGroup (Matrix (Fin p) (Fin p) ℝ) := Matrix.frobeniusNormedAddCommGroup
   let _ : InnerProductSpace ℝ (Matrix (Fin p) (Fin p) ℝ) := Matrix.frobeniusInnerProductSpace
-  rw [coe_inner, Matrix.frobenius_inner_eq_trace_transpose_mul,
-    (Matrix.isHermitian_iff_isSymm.1 (isHermitian_coe A)).eq, Matrix.trace_mul_comm]
+  rw [coe_inner, Matrix.frobenius_inner_eq_trace_transpose_mul, transpose_coe A,
+    Matrix.trace_mul_comm]
 
 /-- The trace pairing against a fixed symmetric matrix is continuous, being the Frobenius inner
 product with that matrix. -/
@@ -488,3 +436,70 @@ theorem continuous_exp_trace_mul_coe {p : ℕ}
   (continuous_const.mul (continuous_trace_mul_coe Θ)).rexp
 
 end selfAdjoint
+
+namespace TauCeti
+
+/-! ### Representers of the matrix entries -/
+
+section symmetricEntry
+
+variable {p : ℕ}
+
+/-- The symmetric matrix `(Eᵢⱼ + Eⱼᵢ) / 2`, which represents evaluation at the `(i, j)` entry
+under the trace pairing: `trace (symmetricEntry i j * A) = A i j` for every symmetric `A`. -/
+def symmetricEntry (i j : Fin p) : selfAdjoint.submodule ℝ (Matrix (Fin p) (Fin p) ℝ) :=
+  ⟨(1 / 2 : ℝ) • (Matrix.single i j 1 + Matrix.single j i 1),
+    Matrix.isHermitian_iff_isSelfAdjoint.1 <| by
+      rw [Matrix.isHermitian_iff_isSymm, Matrix.IsSymm.ext_iff]
+      intro k l
+      simp only [Matrix.smul_apply, Matrix.add_apply, Matrix.single_apply, smul_eq_mul]
+      split_ifs <;> simp_all [eq_comm] ⟩
+
+theorem coe_symmetricEntry (i j : Fin p) :
+    ((symmetricEntry i j : selfAdjoint.submodule ℝ (Matrix (Fin p) (Fin p) ℝ)) :
+        Matrix (Fin p) (Fin p) ℝ) =
+      (1 / 2 : ℝ) • (Matrix.single i j 1 + Matrix.single j i 1) :=
+  (rfl)
+
+/-- Pairing a Hermitian matrix with `TauCeti.symmetricEntry i j` under the trace reads off its
+`(i, j)` entry. -/
+theorem trace_symmetricEntry_mul (i j : Fin p) {A : Matrix (Fin p) (Fin p) ℝ}
+    (hA : A.IsHermitian) :
+    (((symmetricEntry i j : selfAdjoint.submodule ℝ (Matrix (Fin p) (Fin p) ℝ)) :
+        Matrix (Fin p) (Fin p) ℝ) * A).trace = A i j := by
+  rw [coe_symmetricEntry, Matrix.smul_mul, Matrix.trace_smul, Matrix.add_mul, Matrix.trace_add,
+    Matrix.trace_single_mul, Matrix.trace_single_mul]
+  simp only [smul_eq_mul]
+  have hsym : A j i = A i j := by simpa using hA.apply i j
+  rw [hsym]
+  ring
+
+/-- The trace pairing of `TauCeti.symmetricEntry i j` with an element of the symmetric subspace is
+its `(i, j)` entry. -/
+@[simp]
+theorem trace_symmetricEntry_mul_coe (i j : Fin p)
+    (A : selfAdjoint.submodule ℝ (Matrix (Fin p) (Fin p) ℝ)) :
+    (((symmetricEntry i j : selfAdjoint.submodule ℝ (Matrix (Fin p) (Fin p) ℝ)) :
+        Matrix (Fin p) (Fin p) ℝ) * (A : Matrix (Fin p) (Fin p) ℝ)).trace =
+      (A : Matrix (Fin p) (Fin p) ℝ) i j :=
+  trace_symmetricEntry_mul i j (selfAdjoint.isHermitian_coe A)
+
+/-- The bilinear map `(M, N) ↦ trace (M * S * N * S)` at two entry representers, for a Hermitian
+`S`. -/
+theorem trace_symmetricEntry_mul_mul_symmetricEntry_mul (i j k l : Fin p)
+    {S : Matrix (Fin p) (Fin p) ℝ} (hS : S.IsHermitian) :
+    (((symmetricEntry i j : selfAdjoint.submodule ℝ (Matrix (Fin p) (Fin p) ℝ)) :
+        Matrix (Fin p) (Fin p) ℝ) * S *
+      ((symmetricEntry k l : selfAdjoint.submodule ℝ (Matrix (Fin p) (Fin p) ℝ)) :
+        Matrix (Fin p) (Fin p) ℝ) * S).trace =
+      (S i k * S j l + S i l * S j k) / 2 := by
+  rw [coe_symmetricEntry, coe_symmetricEntry]
+  simp only [Matrix.smul_mul, Matrix.mul_smul, Matrix.trace_smul, Matrix.add_mul,
+    Matrix.mul_add, Matrix.trace_add, Matrix.single_mul_mul_single, Matrix.trace_single_mul]
+  have hsym (a b : Fin p) : S a b = S b a := by simpa using hS.apply b a
+  rw [hsym j k, hsym l i, hsym j l, hsym k i, hsym i l, hsym k j]
+  ring
+
+end symmetricEntry
+
+end TauCeti

@@ -9,19 +9,16 @@ public import Mathlib.LinearAlgebra.Matrix.Trace
 import Mathlib.Tactic.Ring
 
 /-!
-# Polarizing the trace quadratic form of a matrix
+# Traces of products alternating with a fixed matrix
 
-For a fixed square matrix `S`, the map `Θ ↦ trace (Θ * S * Θ * S)` is a quadratic form on square
-matrices. This file records its expansion at a sum, which is the polarization identity for that
-form: the two mixed products are cyclic rotations of one another, so they have the same trace and
-the cross term appears with coefficient two.
-
-The form is the one whose polarization gives the covariance of two trace statistics of a Wishart
-matrix.
+Fix a square matrix `S`. This file expands the quadratic map `M ↦ trace (M * S * M * S)` at a
+sum, so that polarization recovers the symmetric bilinear map `(M, N) ↦ trace (M * S * N * S)`
+from it.
 
 ## Main results
 
-* `Matrix.trace_add_mul_mul_add_mul` — the expansion of `trace ((Θ₁ + Θ₂) * S * (Θ₁ + Θ₂) * S)`.
+* `Matrix.trace_add_mul_add_mul`: the expansion of `trace ((M + N) * S * (M + N) * S)` into the
+  two pure terms and twice the mixed term.
 -/
 
 public section
@@ -30,15 +27,15 @@ namespace Matrix
 
 variable {n R : Type*} [Fintype n] [CommSemiring R]
 
-/-- The quadratic form `Θ ↦ trace (Θ * S * Θ * S)` expanded at a sum. The cross term carries a
-factor of two because exchanging the two matrices rotates the product cyclically, which leaves
-the trace unchanged. -/
-theorem trace_add_mul_mul_add_mul (S Θ₁ Θ₂ : Matrix n n R) :
-    ((Θ₁ + Θ₂) * S * (Θ₁ + Θ₂) * S).trace =
-      (Θ₁ * S * Θ₁ * S).trace + 2 * (Θ₁ * S * Θ₂ * S).trace + (Θ₂ * S * Θ₂ * S).trace := by
-  have hcomm : (Θ₂ * S * Θ₁ * S).trace = (Θ₁ * S * Θ₂ * S).trace := by
-    rw [Matrix.mul_assoc (Θ₂ * S) Θ₁ S, Matrix.trace_mul_comm, ← Matrix.mul_assoc]
-  simp only [Matrix.add_mul, Matrix.mul_add, Matrix.trace_add, hcomm]
+/-- The quadratic map `M ↦ trace (M * S * M * S)` expands at a sum into the two pure terms plus
+twice the mixed term. -/
+theorem trace_add_mul_add_mul (M N S : Matrix n n R) :
+    ((M + N) * S * (M + N) * S).trace =
+      (M * S * M * S).trace + 2 * (M * S * N * S).trace + (N * S * N * S).trace := by
+  have hcross : (N * S * M * S).trace = (M * S * N * S).trace := by
+    simpa only [Matrix.mul_assoc] using Matrix.trace_mul_comm (N * S) (M * S)
+  simp only [Matrix.add_mul, Matrix.mul_add, Matrix.trace_add]
+  rw [hcross]
   ring
 
 end Matrix
